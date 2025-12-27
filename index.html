@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gold Tapper Pro - Ultimate Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: radial-gradient(circle at center, #1a1a2e, #0f0f1a);
+            color: white;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        .coin-btn {
+            width: 220px; height: 220px;
+            background: linear-gradient(145deg, #ffcc33, #d4a017);
+            border-radius: 50%;
+            cursor: pointer;
+            border: 8px solid #b8860b;
+            box-shadow: 0 15px 0 #8b6508, 0 20px 30px rgba(0,0,0,0.5);
+            transition: all 0.1s;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 80px; user-select: none;
+        }
+        .coin-btn:active {
+            transform: translateY(12px);
+            box-shadow: 0 3px 0 #8b6508, 0 10px 15px rgba(0,0,0,0.4);
+        }
+        .floating-text {
+            position: absolute; color: #ffcc33; font-weight: 800;
+            pointer-events: none; animation: floatUp 0.6s ease-out forwards;
+            z-index: 100;
+        }
+        @keyframes floatUp {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-100px); opacity: 0; }
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-thumb { background: #ffcc33; border-radius: 10px; }
+    </style>
+</head>
+<body class="flex flex-col items-center p-4">
+
+    <nav class="w-full max-w-lg flex justify-between items-center py-6">
+        <div>
+            <h1 class="text-2xl font-black text-yellow-500 italic leading-none">GOLD TAPPER</h1>
+            <span class="text-[10px] text-gray-500 font-bold tracking-[3px]">EARN REWARDS</span>
+        </div>
+        <div id="openWallet" class="glass-panel px-5 py-2 rounded-2xl cursor-pointer flex items-center gap-2 hover:scale-105 transition active:scale-95">
+            <span class="text-xl">💰</span>
+            <span id="balance" class="font-bold text-xl text-white">0</span>
+        </div>
+    </nav>
+
+    <div class="flex-1 flex flex-col items-center justify-center gap-12">
+        <div class="relative">
+            <button id="tapBtn" class="coin-btn">🪙</button>
+        </div>
+        <div class="text-center">
+            <p class="text-gray-500 text-xs font-bold uppercase tracking-[4px] mb-2">Current Balance</p>
+            <h2 id="stats" class="text-6xl font-black text-white">0</h2>
+        </div>
+    </div>
+
+    <div id="redeemModal" class="fixed inset-0 bg-black/95 hidden items-center justify-center z-50 p-6">
+        <div class="glass-panel p-8 rounded-[40px] w-full max-w-md border border-white/20">
+            <h2 class="text-3xl font-extrabold mb-1">Wallet</h2>
+            <p class="text-gray-400 text-xs mb-8 font-medium">Redeem codes are sent to your Gmail.</p>
+            
+            <div class="space-y-5">
+                <div>
+                    <label class="text-[11px] text-gray-500 uppercase font-black ml-1">Your Gmail Address</label>
+                    <input type="email" id="userEmail" placeholder="Enter Gmail..." class="w-full bg-white/5 border border-white/10 p-4 rounded-2xl outline-none focus:border-yellow-500 text-white transition">
+                </div>
+
+                <div>
+                    <label class="text-[11px] text-gray-500 uppercase font-black ml-1">Select Reward</label>
+                    <select id="redeemAmount" class="w-full bg-[#151525] border border-white/10 p-4 rounded-2xl outline-none focus:border-yellow-500 text-white">
+                        <option value="1000">1,000 Coins = ₹10 Card</option>
+                        <option value="5000">5,000 Coins = ₹50 Card</option>
+                        <option value="10000">10,000 Coins = ₹100 Card</option>
+                    </select>
+                </div>
+                
+                <button onclick="handleRedeem()" class="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-black py-5 rounded-2xl shadow-2xl transition active:scale-95">
+                    CONFIRM REDEEM
+                </button>
+                <button id="closeWallet" class="w-full text-gray-500 text-xs font-bold uppercase py-2 tracking-widest">Close</button>
+            </div>
+
+            <div class="mt-10 pt-6 border-t border-white/10">
+                <h3 class="text-xs font-black text-yellow-500 mb-4 flex justify-between items-center uppercase tracking-widest">
+                    <span>Pending Requests</span>
+                    <span class="text-[9px] text-gray-600 font-normal">Auto-clears in 24h</span>
+                </h3>
+                <div id="historyList" class="space-y-3 max-h-48 overflow-y-auto pr-2">
+                    </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Sound System (Beep)
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playSound(freq, type, duration) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration);
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        // Data Storage
+        let userData = JSON.parse(localStorage.getItem('tapMaster_Pro')) || {
+            coins: 0,
+            history: []
+        };
+
+        const tapBtn = document.getElementById('tapBtn');
+        const balanceTxt = document.getElementById('balance');
+        const statsTxt = document.getElementById('stats');
+        const historyList = document.getElementById('historyList');
+
+        function sync() {
+            balanceTxt.innerText = userData.coins;
+            statsTxt.innerText = userData.coins;
+            localStorage.setItem('tapMaster_Pro', JSON.stringify(userData));
+            renderHistory();
+        }
+
+        // Tap Event
+        tapBtn.onclick = (e) => {
+            userData.coins++;
+            playSound(700, 'sine', 0.1); 
+            
+            const float = document.createElement('div');
+            float.className = 'floating-text';
+            float.innerText = '+1';
+            float.style.left = `${e.clientX}px`;
+            float.style.top = `${e.clientY}px`;
+            document.body.appendChild(float);
+            setTimeout(() => float.remove(), 600);
+            
+            sync();
+        };
+
+        // History with 24h Auto-Delete Logic
+        function renderHistory() {
+            const now = Date.now();
+            const oneDay = 24 * 60 * 60 * 1000;
+
+            // Purani requests (24h+) remove karna
+            userData.history = userData.history.filter(item => (now - item.timestamp) < oneDay);
+            localStorage.setItem('tapMaster_Pro', JSON.stringify(userData));
+
+            if (userData.history.length === 0) {
+                historyList.innerHTML = '<p class="text-gray-600 text-[10px] italic text-center py-4">No active pending requests.</p>';
+                return;
+            }
+
+            historyList.innerHTML = userData.history.map(item => `
+                <div class="bg-white/5 p-4 rounded-2xl flex justify-between items-center border border-white/5">
+                    <div class="overflow-hidden">
+                        <p class="text-[9px] text-gray-500 font-bold uppercase">${item.date}</p>
+                        <p class="text-xs font-bold text-white truncate w-32">${item.email}</p>
+                        <p class="text-[10px] text-yellow-500 font-bold">₹${item.rs} Reward</p>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-[9px] bg-yellow-500 text-black px-2 py-1 rounded-lg font-black italic">PENDING</span>
+                    </div>
+                </div>
+            `).reverse().join('');
+        }
+
+        // Redeem Function
+        async function handleRedeem() {
+            const email = document.getElementById('userEmail').value;
+            const amount = parseInt(document.getElementById('redeemAmount').value);
+            const rupees = amount / 100;
+
+            if(!email.includes('@')) { return alert("Sahi Gmail daalein!"); }
+            if(userData.coins < amount) { return alert("Coins kam hain!"); }
+
+            playSound(900, 'square', 0.3);
+
+            // Add to Local Storage with Timestamp
+            userData.coins -= amount;
+            userData.history.push({
+                date: new Date().toLocaleString(),
+                timestamp: Date.now(),
+                email: email,
+                rs: rupees
+            });
+
+            sync();
+
+            // SEND GMAIL TO ADMIN (Formspree)
+            // Replace 'YOUR_ID' with your Formspree ID
+            fetch(`https://formspree.io/f/YOUR_ID`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    Alert: "NEW REDEEM REQUEST",
+                    User_Gmail: email,
+                    Amount: "₹" + rupees,
+                    Coins_Deducted: amount
+                })
+            });
+
+            alert("Request submitted successfully! Code will be sent within 24 hours.");
+            document.getElementById('redeemModal').style.display = 'none';
+        }
+
+        // Modal Toggles
+        document.getElementById('openWallet').onclick = () => {
+            playSound(500, 'sine', 0.1);
+            document.getElementById('redeemModal').style.display = 'flex';
+        };
+        document.getElementById('closeWallet').onclick = () => document.getElementById('redeemModal').style.display = 'none';
+
+        sync();
+    </script>
+</body>
+</html>
